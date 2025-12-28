@@ -72,4 +72,39 @@ if (post) post.get(0).scrollIntoView();
 ```
 `post.get(0)` nhằm chuyền từ đối tượng jQuery -> DOM bình thường, `scrollIntoView()` sẽ cuộn đến thẻ `<h2>` đó
 
-PortSwigger cung cấp khá thiếu thông tin về sink `$()` của jQuery cũng như tại sao phải sử dụng payload là `<iframe...`. Đại khái là sink không chỉ cho phép truy cập DOM mà còn cho phép tạo thêm các thẻ mới. Dựa vào đó, ta có thể tạo và kích hoạt script với `<img onerror...` và `<iframe onerror...`
+PortSwigger cung cấp khá thiếu thông tin về sink `$()` của jQuery cũng như tại sao phải sử dụng payload là `<iframe...`. Đại khái là sink không chỉ cho phép truy cập DOM mà còn cho phép tạo thêm các thẻ mới. Dựa vào đó, ta có thể tạo và kích hoạt script với `<img onerror...` và `<iframe onerror...`, tham khảo https://web.stanford.edu/class/cs98si/slides/jquery.html#:~:text=We%20can%20create%20an%20element%20by%20passing,HTML%20element,%20with%20no%20naked%20text%20outside.  
+Tới đây mình lại thắc mắc, nếu chèn thẻ `<img>` thì biến `post` trở thành
+```javascript
+var post = $('section.blog-list h2:contains('<img...onerror=alert(1)>')');
+```
+Thẻ `<img` bị bao trong hàm `contains()`, nhưng tại sao thẻ vẫn được render và thực thi. Đại khái, jQuery version 1.9 trở xuống xác định đối tượng trong đối tượng khá sơ sài. Trong bài này, do trong `$()` chứa dấu `<>` đã vô tình làm jQuery hiểu lầm đây là một HTML code, dẫn đến render đoạn HTML này.  
+Tham khảo thêm:  
+https://jquery.com/upgrade-guide/1.9/#jquery-htmlstring-versus-jquery-selectorstring  
+https://nvd.nist.gov/vuln/detail/CVE-2012-6708
+
+Bắt đầu khai thác, chèn `<img ... onerror=alert(1)>` test thử  
+![alt text](images/xss/image-14.png)  
+
+Tuy nhiên, nếu ta gửi `url/#<img...onerror=...>` như thế này, thì event hashchange sẽ không được trigger, dẫn đến thẻ `<img>` không được render. Do đó, ta sử dụng `<iframe>` truy cập url hiện tại và có event là `onload= "this.src= 'url-hiện-tại/#<img...>' "`. Đầu tiên, iframe truy cập url gốc, event onload sẽ được trigger, thay đổi hash từ `#` -> `#<img...>`, hashchange được trigger dẫn đến thực thi `<img>`
+![alt text](images/xss/image-15.png)  
+
+Bài này khá khoai do vận dụng jQuery nhưng PortSwigger lại cung cấp khá ít thông tin về payload cũng như cách jQuery hoạt động dẫn đến lỗi.
+
+# Lab 08: DOM XSS in AngularJS expression with angle brackets and double quotes HTML-encoded
+Ái chà, bài này lại xài thư viện mới, đề bài có nói rằng AngularJS sẽ có hiệu lực với các thẻ có thuộc tính `ng-app`, các thẻ này có thể thực thi script trong cặp dấu `{{ script }}`.  
+
+Ta tìm được endpoint search có thẻ `body` định nghĩa thuộc tính `ng-app`, nghĩa là toàn bộ các thẻ trong `body` đều chạy được `{{ script }}`, trong đó có trường trả về `search results for ...`   
+![alt text](images/xss/image-16.png)
+
+
+Tìm hiểu thêm, `{{ script }}` của Angular chỉ cho phép chạy các hàm nằm trong `$scope` được quy định trước, nên không thể chạy được các hàm không được định nghĩa trong scope `{{ alert(1) }}` cũng như là `{{ print() }}`.  
+
+Ta có thể bypass bằng cách thay vì gọi trực tiếp, ta có thể sử dụng `constructor` để gọi gián tiếp hàm `alert()`, ví dụ `alert.constructor` sẽ trả về Function(), chuỗi a thì `a.constructor` trả về String(). Trong bài này, ta sử dụng `Function()`, vì nó cho phép ta khai báo động một `Function()`, gọi gián tiếp một hàm JS khác, bypass được sandbox của AngularJS.   
+Tham khảo:  
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function#syntax    
+https://portswigger.net/research/dom-based-angularjs-sandbox-escapes  
+
+Vậy để khai thác, ta cần tìm một hàm có trong $scope của Angular, thêm phương thức constructor và lồng thêm hàm `alert(1)` vào   
+![alt text](images/xss/image-17.png)  
+
+# Lab 09: 
