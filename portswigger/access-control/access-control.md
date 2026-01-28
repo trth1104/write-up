@@ -174,3 +174,73 @@ Kết quả là mình lấy được đoạn chat khả nghi, vô tình lộ pas
 ![alt text](images/access-control/image-42.png)   
 
 # Lab 10: URL-based access control can be circumvented
+Đề yêu cầu truy cập admin panel. Admin panel hiện đang được config để chặn truy cập bên ngoài. Tuy nhiên backend đang sử dụng framework bị lỗi liên quan đến `X-Original-URL` header. Yêu cầu xóa user `carlos`.   
+
+Sau khi duyệt sơ để tìm các untrusted data, mình không tìm được thêm bất kỳ endpoint nào có thể khai thác được.  
+
+Từ check pagesource, kiểm tra gói tin burp cũng không tìm thêm gì khả nghi.  
+
+Đề có nhắc đến lỗi liên quan đến header `X-Original-URL`. Thử google xem đây là gì.  
+
+Một bài blog trên Medium có cung cấp thông tin như sau, tham khảo https://medium.com/@cirilptomass/x-original-url-a-loophole-that-could-expose-your-web-app-71b050d6d07d.  
+![alt text](images/access-control/image-43.png)  
+
+Lỗi này chủ yếu xảy ở các framework như Symfony, tham khảo https://www.acunetix.com/vulnerabilities/web/url-rewrite-vulnerability/.  
+![alt text](images/access-control/image-44.png)  
+
+Trong bài blog có cung cấp 1 example khai thác, đó là thêm header `X-Original-URL`.  
+
+Mình thử thêm `X-Original-Url: /admin` vào gói tin bất kỳ tới target.  
+![alt text](images/access-control/image-45.png)  
+
+Mình truy cập thành công admin panel, trang này cung cấp sẵn endpoint để xóa user carlos, thay header thành `X-Original-Url: /admin/delete?username=carlos`.  
+
+Tuy nhiên bị lỗi thiếu tham số.  
+![alt text](images/access-control/image-46.png) 
+
+Thử URL encode xem sao.  
+![alt text](images/access-control/image-47.png)  
+
+Kết quả là Not Found, có vẻ lỗi này chỉ có thể parse đường dẫn, không thể thêm tham số. Vậy nếu mình thay tham số của HTTP GET thì sao. Header `X-Original-Url: /admin/delete`, `GET /product?username=carlos`, khai thác thành công.   
+![alt text](images/access-control/image-48.png)  
+
+# Lab 11: Method-based access control can be circumvented
+Đề yêu cầu truy cập và làm quen với admin panel (có cung cấp credentials của admin), dựa vào các phương thức của admin panel để leo thang đặc quyền với user bình thường `wiener`.  
+
+Thử sử dụng admin panel để thăng quyền 1 user lên admin, sau đó mình kiểm tra xem trình duyệt gửi bao nhiêu gói tin và gói tin đó là gì.  
+Khi thay đổi quyền, trình duyệt sẽ gửi gói tin tới endpoint `/admin-roles` với 2 tham số là `username` và `action`.  
+![alt text](images/access-control/image-49.png)  
+
+Đăng nhập user bình thường và truy cập endpoint trên trình duyệt, mình nhận phản hồi thiếu tham số.  
+![alt text](images/access-control/image-50.png)  
+
+Có vẻ server không chỉ chấp nhận request method POST mà còn nhận GET nữa, thử thêm 2 tham số là username và action tương tự như gói tin POST. Gói tin mình gửi sẽ chỉnh sửa `GET /admin-roles?username=wiener&action=upgrade`.  
+![alt text](images/access-control/image-51.png)
+
+# Lab 12: Multi-step process with no access control on one step
+Lab này có lỗi trong chức năng thay đổi quyền người dùng. Đề yêu cầu truy cập và làm quen với admin panel (có cung cấp credentials của admin), dựa vào các phương thức của admin panel để leo thang đặc quyền với user bình thường `wiener`.  
+
+Admin panel cung cấp chức năng thay đổi quyền người dùng, khi mình chọn upgrade user, trang web sẽ chuyển tới 1 trang xác nhận trung gian thay vì như lab trước.  
+![alt text](images/access-control/image-53.png)  
+
+Kiểm tra thử HTML của 2 button gửi tới đâu, mình phát hiện gói tin đổi quyền sẽ có method POST.  
+![alt text](images/access-control/image-54.png) 
+
+Khi chọn Yes, trình duyệt gửi gói tin thêm tham số `confirmed=true`. 
+![alt text](images/access-control/image-55.png) 
+
+Dựa trên thông tin trên, mình thử xây dựng một gói tin tương tự như gói POST ở trên. Đầu tiên, mình đăng nhập với thông tin của wiener, chọn 1 gói tin bất kỳ, chọn change request method và thêm các tham số tương tự như gói tin ở trên, kết quả cuối cùng sẽ là gói tin như sau.    
+![alt text](images/access-control/image-56.png)  
+
+Mình gửi gói tin và thành công leo thang đặc quyền user bình thường.  
+
+# Lab 13: Referer-based access control 
+Lab kiểm soát truy cập một số chức năng admin bằng header Referer. Đề yêu cầu truy cập và làm quen với admin panel (có cung cấp credentials của admin), dựa vào các phương thức của admin panel để leo thang đặc quyền với user bình thường `wiener`.  
+
+Khi thực hiện thay đổi quyền, trình duyệt gửi gói tin.  
+![alt text](images/access-control/image-57.png)  
+
+Mình đăng nhập với user bình thường `wiener`.  
+
+Mình thử xây dựng gói tin tương tự với gói tin thay đổi quyền của user admin, `GET /admin-roles?username=wiener&action=upgrade`, và thêm Referer `Referer: https://0a5d00bb04a31a1181c8bc4400750067.web-security-academy.net/admin`.  
+![alt text](images/access-control/image-58.png)  
